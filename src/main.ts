@@ -9,7 +9,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { formatDuration, getArgs, isTimedOut, sleep } from './utils';
 import { WorkflowHandler, WorkflowRunConclusion, WorkflowRunResult, WorkflowRunStatus } from './workflow-handler';
-import { logHandlerFactory } from './workflow-logs-handler';
+import { handleWorkflowLogsPerJob } from './workflow-logs-handler';
 
 
 
@@ -64,8 +64,7 @@ function computeConclusion(start: number, waitForCompletionTimeout: number, resu
 async function handleLogs(args: any, workflowHandler: WorkflowHandler) {
   try {
     const workflowRunId = await workflowHandler.getWorkflowRunId()
-    const workflowLogsHandler = logHandlerFactory(args.workflowLogMode, args.token, workflowRunId, args.owner, args.repo);
-    await workflowLogsHandler.handle();
+    await handleWorkflowLogsPerJob(args, workflowRunId);
   } catch(e: any) {
     core.error(`Failed to handle logs of tirggered workflow. Cause: ${e}`);
   }

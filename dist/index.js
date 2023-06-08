@@ -9765,8 +9765,7 @@ function handleLogs(args, workflowHandler) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const workflowRunId = yield workflowHandler.getWorkflowRunId();
-            const workflowLogsHandler = (0, workflow_logs_handler_1.logHandlerFactory)(args.workflowLogMode, args.token, workflowRunId, args.owner, args.repo);
-            yield workflowLogsHandler.handle();
+            yield (0, workflow_logs_handler_1.handleWorkflowLogsPerJob)(args, workflowRunId);
         }
         catch (e) {
             core.error(`Failed to handle logs of tirggered workflow. Cause: ${e}`);
@@ -10227,21 +10226,28 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.logHandlerFactory = void 0;
+exports.handleWorkflowLogsPerJob = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const debug_1 = __nccwpck_require__(1417);
-function getWorkflowLogsPerJob(octokit, workflowRunId, owner, repo) {
-    var _a;
+function handleWorkflowLogsPerJob(args, workflowRunId) {
     return __awaiter(this, void 0, void 0, function* () {
-        const logsPerJob = [];
+        const mode = args.workflowLogMode;
+        const token = args.token;
+        const owner = args.token;
+        const repo = args.repo;
+        const handler = logHandlerFactory(mode);
+        if (handler == null) {
+            return;
+        }
+        const octokit = github.getOctokit(token);
         const runId = workflowRunId;
         const response = yield octokit.rest.actions.listJobsForWorkflowRun({
             owner: owner,
             repo: repo,
             run_id: runId
         });
-        (0, debug_1.debug)('Jobs in workflow', response);
+        yield handler.handleJobList(response.data.jobs);
         for (const job of response.data.jobs) {
             try {
                 const jobLog = yield octokit.rest.actions.downloadJobLogsForWorkflowRun({
@@ -10249,60 +10255,44 @@ function getWorkflowLogsPerJob(octokit, workflowRunId, owner, repo) {
                     repo: repo,
                     job_id: job.id,
                 });
-                (0, debug_1.debug)(`Job ${job.id} log`, jobLog);
-                logsPerJob.push({
-                    job: job,
-                    logs: (_a = jobLog.data) === null || _a === void 0 ? void 0 : _a.toString()
-                });
+                yield handler.handleJobLogs(job, jobLog.data);
             }
             catch (error) {
-                (0, debug_1.debug)('Job log download error', error);
-                logsPerJob.push({
-                    job: job,
-                    error: error instanceof Error ? error : new Error(`${error}`)
-                });
+                yield handler.handleError(job, error);
             }
         }
-        return logsPerJob;
     });
 }
-class NoOpLogsHandler {
-    handle() {
-        return __awaiter(this, void 0, void 0, function* () {
-        });
-    }
-}
+exports.handleWorkflowLogsPerJob = handleWorkflowLogsPerJob;
 class PrintLogsHandler {
-    constructor(token, workflowRunId, owner, repo) {
-        this.workflowRunId = workflowRunId;
-        this.owner = owner;
-        this.repo = repo;
-        // Get octokit client for making API calls
-        this.octokit = github.getOctokit(token);
-    }
-    handle() {
+    handleJobList(jobs) {
         return __awaiter(this, void 0, void 0, function* () {
-            const logsPerJob = yield getWorkflowLogsPerJob(this.octokit, this.workflowRunId, this.owner, this.repo);
-            for (const jobLogs of logsPerJob) {
-                core.info(`::group::Logs of job '${jobLogs.job.name}'`);
-                if (jobLogs.logs) {
-                    core.info(jobLogs.logs);
-                }
-                if (jobLogs.error) {
-                    core.warning(jobLogs.error);
-                }
-                core.info(`::endgroup::`);
-            }
+            (0, debug_1.debug)('Retrieving logs for jobs in workflow', jobs);
+        });
+    }
+    handleJobLogs(job, logs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.startGroup(`Logs of job '${job.name}'`);
+            core.info(escapeImportedLogs(logs));
+            core.endGroup();
+        });
+    }
+    handleError(job, error) {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.warning(escapeImportedLogs(error.message));
         });
     }
 }
-function logHandlerFactory(mode, token, workflowRunId, owner, repo) {
+function logHandlerFactory(mode) {
     switch (mode) {
-        case 'print': return new PrintLogsHandler(token, workflowRunId, owner, repo);
-        default: return new NoOpLogsHandler();
+        case 'print': return new PrintLogsHandler();
+        default: return null;
     }
 }
-exports.logHandlerFactory = logHandlerFactory;
+function escapeImportedLogs(str) {
+    return str.replace(/^/mg, "| ")
+        .replace(/^(##\[[^\]]+\])/gm, "| $1");
+}
 
 
 /***/ }),

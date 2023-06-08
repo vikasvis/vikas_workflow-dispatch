@@ -8,7 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Echo message
-        run: for i in {1..5000}; do; echo "Hello $i"; sleep 0.1; done    
+        run: |
+          for i in {1..500}
+          do
+            echo "Hello $i"
+            sleep 0.1
+          done    
   
   timeout:
     runs-on: ubuntu-latest

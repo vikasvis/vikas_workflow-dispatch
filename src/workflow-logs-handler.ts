@@ -4,18 +4,22 @@ import { debug } from './debug';
 
 interface JobInfo {
   name: string,
-  id: string
-}
-interface JobLogs {
-  job: JobInfo,
-  logs?: string,
-  error?: Error
+  id: number
 }
 
 
-async function getWorkflowLogsPerJob(octokit: any, workflowRunId: number, owner: string, repo: string): Promise<Array<JobLogs>> {
-  const logsPerJob: Array<JobLogs> = []
+export async function handleWorkflowLogsPerJob(args: any, workflowRunId: number): Promise<void> {
+  const mode = args.workflowLogMode;
+  const token = args.token;
+  const owner = args.owner;
+  const repo = args.repo;
 
+  const handler = logHandlerFactory(mode);
+  if (handler == null) {
+    return;
+  }
+
+  const octokit = github.getOctokit(token);
   const runId = workflowRunId;
   const response = await octokit.rest.actions.listJobsForWorkflowRun({
     owner: owner,
@@ -23,7 +27,7 @@ async function getWorkflowLogsPerJob(octokit: any, workflowRunId: number, owner:
     run_id: runId
   });
 
-  debug('Jobs in workflow', response);
+  await handler.handleJobList(response.data.jobs);
 
   for (const job of response.data.jobs) {
     try {
@@ -32,65 +36,50 @@ async function getWorkflowLogsPerJob(octokit: any, workflowRunId: number, owner:
         repo: repo,
         job_id: job.id,
       });
-      debug(`Job ${job.id} log`, jobLog);
-
-      logsPerJob.push({
-        job: job,
-        logs: jobLog.data?.toString()
-      });
-    } catch (error) {
-      debug('Job log download error', error);
-      logsPerJob.push({
-        job: job,
-        error: error instanceof Error ? error : new Error(`${error}`)
-      });
+      await handler.handleJobLogs(job, jobLog.data as string);
+    } catch (error: any) {
+      await handler.handleError(job, error);
     }
   }
-
-  return logsPerJob;
 }
 
 
 
-export interface WorkflowLogHandler {
-  handle(): Promise<void>
-}
 
-class NoOpLogsHandler implements WorkflowLogHandler {
-  async handle(): Promise<void> {
-  }
+
+
+interface WorkflowLogHandler {
+  handleJobList(jobs: Array<JobInfo>): Promise<void>
+  handleJobLogs(job: JobInfo, logs: string): Promise<void>
+  handleError(job: JobInfo, error: Error): Promise<void>
 }
 
 class PrintLogsHandler implements WorkflowLogHandler {
-  private octokit: any;
 
-  constructor(token: string,
-              private workflowRunId: number,
-              private owner: string,
-              private repo: string) {
-    // Get octokit client for making API calls
-    this.octokit = github.getOctokit(token);
+  async handleJobList(jobs: Array<JobInfo>): Promise<void> {
+    debug('Retrieving logs for jobs in workflow', jobs);
   }
 
-  async handle(): Promise<void> {
-    const logsPerJob = await getWorkflowLogsPerJob(this.octokit, this.workflowRunId, this.owner, this.repo);
+  async handleJobLogs(job: JobInfo, logs: string): Promise<void> {
+    core.startGroup(`Logs of job '${job.name}'`);
+    core.info(escapeImportedLogs(logs));
+    core.endGroup();
 
-    for (const jobLogs of logsPerJob) {
-      core.info(`::group::Logs of job '${jobLogs.job.name}'`);
-      if (jobLogs.logs) {
-        core.info(jobLogs.logs);
-      }
-      if (jobLogs.error) {
-        core.warning(jobLogs.error);
-      }
-      core.info(`::endgroup::`);
-    }
+  }
+
+  async handleError(job: JobInfo, error: Error): Promise<void> {
+    core.warning(escapeImportedLogs(error.message));
   }
 }
 
-export function logHandlerFactory(mode: string, token: string, workflowRunId: number, owner: string, repo: string): WorkflowLogHandler {
+function logHandlerFactory(mode: string): WorkflowLogHandler | null {
   switch(mode) {
-    case 'print': return new PrintLogsHandler(token, workflowRunId, owner, repo);
-    default: return new NoOpLogsHandler();
+    case 'print': return new PrintLogsHandler();
+    default: return null;
   }
+}
+
+function escapeImportedLogs(str: string): string {
+  return str.replace(/^/mg, "| ")
+          .replace(/##\[([^\]]+)\]/gm, "##<$1>")
 }
