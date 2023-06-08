@@ -5799,7 +5799,13 @@ const core = __importStar(__webpack_require__(186));
 function debug(title, content) {
     if (core.isDebug()) {
         core.info(`::group::${title}`);
-        core.debug(JSON.stringify(content, null, 3));
+        try {
+            core.debug(JSON.stringify(content, null, 3));
+        }
+        catch (e) {
+            core.debug(`Failed to serialize object, trying toString. Cause: ${e}`);
+            core.debug(content === null || content === void 0 ? void 0 : content.toString());
+        }
         core.info('::endgroup::');
     }
 }
@@ -5975,13 +5981,24 @@ var TimeUnit;
     TimeUnit[TimeUnit["H"] = 3600000] = "H";
 })(TimeUnit || (TimeUnit = {}));
 function toMilliseconds(timeWithUnit) {
-    const unitStr = timeWithUnit.substr(timeWithUnit.length - 1);
+    const unitStr = timeWithUnit.substring(timeWithUnit.length - 1);
     const unit = TimeUnit[unitStr.toUpperCase()];
     if (!unit) {
         throw new Error('Unknown time unit ' + unitStr);
     }
     const time = parseFloat(timeWithUnit);
     return time * unit;
+}
+function parse(inputsJson) {
+    if (inputsJson) {
+        try {
+            return JSON.parse(inputsJson);
+        }
+        catch (e) {
+            throw new Error(`Failed to parse 'inputs' parameter. Muse be a valid JSON.\nCause: ${e}`);
+        }
+    }
+    return {};
 }
 function getArgs() {
     // Required inputs
@@ -5993,11 +6010,7 @@ function getArgs() {
         ? core.getInput('repo').split('/')
         : [github.context.repo.owner, github.context.repo.repo];
     // Decode inputs, this MUST be a valid JSON string
-    let inputs = {};
-    const inputsJson = core.getInput('inputs');
-    if (inputsJson) {
-        inputs = JSON.parse(inputsJson);
-    }
+    let inputs = parse(core.getInput('inputs'));
     const displayWorkflowUrlStr = core.getInput('display-workflow-run-url');
     const displayWorkflowUrl = displayWorkflowUrlStr && displayWorkflowUrlStr === 'true';
     const displayWorkflowUrlTimeout = toMilliseconds(core.getInput('display-workflow-run-url-timeout'));
@@ -6207,41 +6220,10 @@ class WorkflowHandler {
             try {
                 core.debug('Get workflow run id');
                 if (this.runName) {
-                    const result = yield this.octokit.rest.checks.listForRef({
-                        check_name: this.runName,
-                        owner: this.owner,
-                        repo: this.repo,
-                        ref: this.ref,
-                        filter: 'latest'
-                    });
-                    if (result.length == 0) {
-                        throw new Error('Run not found');
-                    }
-                    this.workflowRunId = result.check_runs[0].id;
+                    this.workflowRunId = yield this.findWorklowRunIdFromRunName(this.runName);
                 }
                 else {
-                    const workflowId = yield this.getWorkflowId();
-                    const response = yield this.octokit.actions.listWorkflowRuns({
-                        owner: this.owner,
-                        repo: this.repo,
-                        workflow_id: workflowId,
-                        event: 'workflow_dispatch'
-                    });
-                    debug_1.debug('List Workflow Runs', response);
-                    const runs = response.data.workflow_runs
-                        .filter((r) => new Date(r.created_at).setMilliseconds(0) >= this.triggerDate);
-                    debug_1.debug(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
-                        id: r.id,
-                        name: r.name,
-                        created_at: r.creatd_at,
-                        triggerDate: new Date(this.triggerDate).toISOString(),
-                        created_at_ts: new Date(r.created_at).valueOf(),
-                        triggerDateTs: this.triggerDate
-                    })));
-                    if (runs.length == 0) {
-                        throw new Error('Run not found');
-                    }
-                    this.workflowRunId = runs[0].id;
+                    this.workflowRunId = yield this.findWorkflowRunIdFromFirstRunOfSameWorkflowId();
                 }
                 return this.workflowRunId;
             }
@@ -6249,6 +6231,47 @@ class WorkflowHandler {
                 debug_1.debug('Get workflow run id error', error);
                 throw error;
             }
+        });
+    }
+    findWorkflowRunIdFromFirstRunOfSameWorkflowId() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const workflowId = yield this.getWorkflowId();
+            const response = yield this.octokit.actions.listWorkflowRuns({
+                owner: this.owner,
+                repo: this.repo,
+                workflow_id: workflowId,
+                event: 'workflow_dispatch'
+            });
+            debug_1.debug('List Workflow Runs', response);
+            const runs = response.data.workflow_runs
+                .filter((r) => new Date(r.created_at).setMilliseconds(0) >= this.triggerDate);
+            debug_1.debug(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
+                id: r.id,
+                name: r.name,
+                created_at: r.creatd_at,
+                triggerDate: new Date(this.triggerDate).toISOString(),
+                created_at_ts: new Date(r.created_at).valueOf(),
+                triggerDateTs: this.triggerDate
+            })));
+            if (runs.length == 0) {
+                throw new Error('Run not found');
+            }
+            return runs[0].id;
+        });
+    }
+    findWorklowRunIdFromRunName(runName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const result = yield this.octokit.rest.checks.listForRef({
+                check_name: runName,
+                owner: this.owner,
+                repo: this.repo,
+                ref: this.ref,
+                filter: 'latest'
+            });
+            if (result.length == 0) {
+                throw new Error('Run not found');
+            }
+            return result.check_runs[0].id;
         });
     }
     getWorkflowId() {
