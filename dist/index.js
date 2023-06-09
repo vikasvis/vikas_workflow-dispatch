@@ -10234,7 +10234,7 @@ function handleWorkflowLogsPerJob(args, workflowRunId) {
     return __awaiter(this, void 0, void 0, function* () {
         const mode = args.workflowLogMode;
         const token = args.token;
-        const owner = args.token;
+        const owner = args.owner;
         const repo = args.repo;
         const handler = logHandlerFactory(mode);
         if (handler == null) {
@@ -10291,7 +10291,7 @@ function logHandlerFactory(mode) {
 }
 function escapeImportedLogs(str) {
     return str.replace(/^/mg, "| ")
-        .replace(/^(##\[[^\]]+\])/gm, "| $1");
+        .replace(/##\[([^\]]+)\]/gm, "##<$1>");
 }
 
 
