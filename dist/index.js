@@ -10092,60 +10092,42 @@ class WorkflowHandler {
                 return this.workflowRunId;
             }
             try {
-                core.debug('Get workflow run id');
+                const workflowId = yield this.getWorkflowId();
+                const response = yield this.octokit.rest.actions.listWorkflowRuns({
+                    owner: this.owner,
+                    repo: this.repo,
+                    workflow_id: workflowId,
+                    event: 'workflow_dispatch',
+                    branch: this.ref,
+                    created: `>=${new Date(this.triggerDate).toISOString()}`
+                });
+                (0, debug_1.debug)('List Workflow Runs', response);
+                let runs = response.data.workflow_runs;
                 if (this.runName) {
-                    this.workflowRunId = yield this.findWorklowRunIdFromRunName(this.runName);
+                    runs = response.data.workflow_runs
+                        .filter((r) => r.name == this.runName);
                 }
-                else {
-                    this.workflowRunId = yield this.findWorkflowRunIdFromFirstRunOfSameWorkflowId();
+                if (runs.length == 0) {
+                    throw new Error('Run not found');
                 }
+                if (runs.length > 1) {
+                    core.warning(`Found ${runs.length} runs. Using the last one.`);
+                    (0, debug_1.debug)(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
+                        id: r.id,
+                        name: r.name,
+                        created_at: r.created_at,
+                        triggerDate: new Date(this.triggerDate).toISOString(),
+                        created_at_ts: new Date(r.created_at).valueOf(),
+                        triggerDateTs: this.triggerDate
+                    })));
+                }
+                this.workflowRunId = runs[0].id;
                 return this.workflowRunId;
             }
             catch (error) {
                 (0, debug_1.debug)('Get workflow run id error', error);
                 throw error;
             }
-        });
-    }
-    findWorkflowRunIdFromFirstRunOfSameWorkflowId() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const workflowId = yield this.getWorkflowId();
-            const response = yield this.octokit.rest.actions.listWorkflowRuns({
-                owner: this.owner,
-                repo: this.repo,
-                workflow_id: workflowId,
-                event: 'workflow_dispatch'
-            });
-            (0, debug_1.debug)('List Workflow Runs', response);
-            const runs = response.data.workflow_runs
-                .filter((r) => new Date(r.created_at).setMilliseconds(0) >= this.triggerDate);
-            (0, debug_1.debug)(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
-                id: r.id,
-                name: r.name,
-                created_at: r.creatd_at,
-                triggerDate: new Date(this.triggerDate).toISOString(),
-                created_at_ts: new Date(r.created_at).valueOf(),
-                triggerDateTs: this.triggerDate
-            })));
-            if (runs.length == 0) {
-                throw new Error('Run not found');
-            }
-            return runs[0].id;
-        });
-    }
-    findWorklowRunIdFromRunName(runName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const result = yield this.octokit.rest.checks.listForRef({
-                check_name: runName,
-                owner: this.owner,
-                repo: this.repo,
-                ref: this.ref,
-                filter: 'latest'
-            });
-            if (result.length == 0) {
-                throw new Error('Run not found');
-            }
-            return result.check_runs[0].id;
         });
     }
     getWorkflowId() {
