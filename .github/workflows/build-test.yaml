@@ -105,7 +105,7 @@ jobs:
   failing-test:
     needs: [build]
     runs-on: ubuntu-latest
-    name: "failing-test [trigger+wait|by workflow filename|shoud report failure]"
+    name: "failing-test [trigger+wait|by workflow filename|should report failure]"
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -136,7 +136,7 @@ jobs:
   timeout-test:
     needs: [build]
     runs-on: ubuntu-latest
-    name: "timeout-test [trigger+wait|by workflow filename|shoud report timed_out]"
+    name: "timeout-test [trigger+wait|by workflow filename|should report timed_out]"
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -166,7 +166,7 @@ jobs:
   print-workflow-logs-test:
     needs: [build]
     runs-on: ubuntu-latest
-    name: "print-workflow-logs-test [trigger+wait|by workflow filename|print logs|shoud report timed_out]"
+    name: "print-workflow-logs-test [trigger+wait|by workflow filename|print logs|should report timed_out]"
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -198,10 +198,58 @@ jobs:
     # - name: Invoke external workflow using this action
     #   uses: ./
     #   with:
-    #     workflow: Deploy To Kubernetes           
+    #     workflow: Deploy To Kubernetes
     #     repo: benc-uk/dapr-store
     #     token: ${{ secrets.PERSONAL_TOKEN }}
-    #     ref: master 
+    #     ref: master
+
+  parallel-runs-test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    name: "parallel-runs-test [trigger+wait|by workflow filename|should succeed]"
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - trunk
+          - staging
+    env:
+      RUN_NAME: ${{ github.repository }}/actions/runs/${{ github.run_id }}/envs/${{ matrix.environment }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+      - name: Download dist
+        uses: actions/download-artifact@v3
+        with:
+          name: build
+          path: dist
+      - name: Invoke 'named-run' workflow for this environment and wait for result using this action
+        id: named-run-workflow
+        uses: ./
+        with:
+          workflow: named-run.yml
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          run-name: ${{ env.RUN_NAME }}
+          wait-for-completion-interval: 10s
+          wait-for-completion-timeout: 120s
+          workflow-logs: print
+          inputs: >-
+            {
+              "run-name": "${{ env.RUN_NAME }}"
+            }
+        continue-on-error: true
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: success
+          actual: ${{ steps.named-run-workflow.outputs.workflow-conclusion }}
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: success
+          actual: ${{ steps.named-run-workflow.outcome }}
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: "Run name: ${{ env.RUN_NAME }}"
+          actual: ${{ steps.named-run-workflow.outcome }}
 
   deploy:
     needs:
