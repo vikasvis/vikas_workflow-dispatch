@@ -92,6 +92,8 @@ jobs:
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
         wait-for-completion-timeout: 5m
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 5m
       continue-on-error: true
     - uses: nick-invision/assert-action@v1
       with:
@@ -121,7 +123,9 @@ jobs:
         workflow: failing.yml
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
-        wait-for-completion-timeout: 5m
+        wait-for-completion-timeout: 60s
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 60s
       continue-on-error: true
     - run: echo "worflow-conclusion=${{ steps.failing-workflow.outputs.workflow-conclusion }}"
     - uses: nick-invision/assert-action@v1
@@ -153,6 +157,8 @@ jobs:
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
         wait-for-completion-timeout: 30s
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 30s
       continue-on-error: true
     - uses: nick-invision/assert-action@v1
       with:
@@ -234,6 +240,8 @@ jobs:
           run-name: ${{ env.RUN_NAME }}
           wait-for-completion-interval: 10s
           wait-for-completion-timeout: 120s
+          display-workflow-run-url-interval: 10s
+          display-workflow-run-url-timeout: 120s
           workflow-logs: print
           inputs: >-
             {
@@ -261,6 +269,7 @@ jobs:
       - failing-test
       - timeout-test
       - print-workflow-logs-test
+      - parallel-runs-test
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository
