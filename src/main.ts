@@ -97,6 +97,7 @@ async function run(): Promise<void> {
 
     await handleLogs(args, workflowHandler);
 
+    core.setOutput('workflow-id', result?.id);
     core.setOutput('workflow-url', result?.url);
     computeConclusion(start, args.waitForCompletionTimeout, result);
 

@@ -242,10 +242,11 @@ jobs:
           wait-for-completion-timeout: 120s
           display-workflow-run-url-interval: 10s
           display-workflow-run-url-timeout: 120s
-          workflow-logs: print
+          workflow-logs: json-output
           inputs: >-
             {
-              "run-name": "${{ env.RUN_NAME }}"
+              "run-name": "${{ env.RUN_NAME }}",
+              "environment": "${{ matrix.environment }}",
             }
         continue-on-error: true
       - uses: nick-invision/assert-action@v1
@@ -257,9 +258,11 @@ jobs:
           expected: success
           actual: ${{ steps.named-run-workflow.outcome }}
       - uses: nick-invision/assert-action@v1
+        env:
+          EXPECTED_LOG_MESSAGE: "### Env: ${{ matrix.environment }} ###"
         with:
-          expected: "Run name: ${{ env.RUN_NAME }}"
-          actual: ${{ steps.named-run-workflow.outcome }}
+          expected: "true"
+          actual: ${{ fromJson(steps.named-run-workflow.outputs.workflow-logs).echo.*.message == env.EXPECTED_LOG_MESSAGE }}
 
   deploy:
     needs:

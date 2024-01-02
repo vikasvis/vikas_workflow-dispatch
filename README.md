@@ -86,6 +86,10 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ## Outputs
 
+### `workflow-id`
+
+> The ID of the worflow run that has been triggered.
+
 ### `workflow-url`
 
 > The URL of the workflow run that has been triggered. It may be undefined if the URL couldn't be retrieved (timeout reached) or if `wait-for-completion` and `display-workflow-run-url` are > both `false`
@@ -94,6 +98,36 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 > The result of the triggered workflow. May be one of `success`, `failure`, `cancelled`, `timed_out`, `skipped`, `neutral`, `action_required`. The step in your workflow will fail if the triggered workflow completes with `failure`, `cancelled` or `timed_out`. Other workflow conlusion are considered success.
 > Only available if `wait-for-completion` is `true`
+
+### `workflow-logs`
+
+> The logs of the triggered workflow based if `inputs.workflow-logs` is set to either `output`, or `json-output`.  
+> Based on the value, result will be:
+>
+> * `output`: Multiline string
+>
+>   ```log
+>   <job-name> | <datetime> <message>
+>   <job-name> | <datetime> <message>
+>   ...
+>   ```
+>
+> * `json-output`: JSON string
+>
+>   ```json
+>   {
+>     "<job-name>": [
+>       {
+>         "datetime": "<datetime>",
+>         "message": "<message>"
+>       },
+>       {
+>         "datetime": "<datetime>",
+>         "message": "<message>"
+>       }
+>     ]
+>   }
+>   ```
 
 ## Example usage
 
@@ -153,6 +187,32 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 - name: Another step that can handle the result
   if: always()
   run: echo "Another Workflow conclusion: ${{ steps.trigger-step.outputs.workflow-conclusion }}"
+```
+
+### Invoke workflow and scrap output
+
+```yaml
+- name: Invoke workflow and scrap output
+  id: trigger-step
+  uses: aurelien-baudet/workflow-dispatch@v2
+  with:
+    workflow: Another Workflow
+    token: ${{ secrets.PERSONAL_TOKEN }}
+    workflow-logs: json-output
+- name: Another step that can handle the result
+  if: always()
+  run: echo '${{ fromJSON(steps.trigger-step.outputs.workflow-logs).my-remote-job }}'
+```
+
+```yaml
+name: Another Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  my-remote-job:
+    - run: echo "Hello world!"
 ```
 
 ### Invoke workflow with a unique run name (since 3.0.0)

@@ -8,6 +8,10 @@ on:
         description: 'The distinct run name used to retrieve the run ID. Defaults to the workflow name'
         type: string
         required: false
+      environment:
+        description: 'The environment name'
+        type: string
+        required: true
 
 jobs:
   echo:
@@ -17,4 +21,4 @@ jobs:
         run: sleep 10s
       - name: Echo message
         run: |
-          echo 'Run name: ${{ github.event.inputs.run-name || github.workflow }}'
+          echo '### Env: ${{ github.event.inputs.environment }} ###'

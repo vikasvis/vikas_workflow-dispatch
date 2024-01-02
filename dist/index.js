@@ -9768,7 +9768,7 @@ function handleLogs(args, workflowHandler) {
             yield (0, workflow_logs_handler_1.handleWorkflowLogsPerJob)(args, workflowRunId);
         }
         catch (e) {
-            core.error(`Failed to handle logs of tirggered workflow. Cause: ${e}`);
+            core.error(`Failed to handle logs of triggered workflow. Cause: ${e}`);
         }
     });
 }
@@ -9794,6 +9794,7 @@ function run() {
             core.info(`Waiting for workflow completion`);
             const { result, start } = yield waitForCompletionOrTimeout(workflowHandler, args.checkStatusInterval, args.waitForCompletionTimeout);
             yield handleLogs(args, workflowHandler);
+            core.setOutput('workflow-id', result === null || result === void 0 ? void 0 : result.id);
             core.setOutput('workflow-url', result === null || result === void 0 ? void 0 : result.url);
             computeConclusion(start, args.waitForCompletionTimeout, result);
         }
@@ -10053,6 +10054,7 @@ class WorkflowHandler {
                 });
                 (0, debug_1.debug)('Workflow Run status', response);
                 return {
+                    id: runId,
                     url: response.data.html_url,
                     status: ofStatus(response.data.status),
                     conclusion: ofConclusion(response.data.conclusion)
@@ -10075,6 +10077,7 @@ class WorkflowHandler {
                 });
                 (0, debug_1.debug)('Workflow Run artifacts', response);
                 return {
+                    id: runId,
                     url: response.data.html_url,
                     status: ofStatus(response.data.status),
                     conclusion: ofConclusion(response.data.conclusion)
@@ -10098,7 +10101,6 @@ class WorkflowHandler {
                     repo: this.repo,
                     workflow_id: workflowId,
                     event: 'workflow_dispatch',
-                    branch: this.ref,
                     created: `>=${new Date(this.triggerDate).toISOString()}`
                 });
                 (0, debug_1.debug)('List Workflow Runs', response);
@@ -10243,6 +10245,16 @@ function handleWorkflowLogsPerJob(args, workflowRunId) {
                 yield handler.handleError(job, error);
             }
         }
+        switch (mode) {
+            case 'json-output':
+                core.setOutput('workflow-logs', handler.getJsonLogs());
+                break;
+            case 'output':
+                core.setOutput('workflow-logs', handler.getRawLogs());
+                break;
+            default:
+                break;
+        }
     });
 }
 exports.handleWorkflowLogsPerJob = handleWorkflowLogsPerJob;
@@ -10265,10 +10277,63 @@ class PrintLogsHandler {
         });
     }
 }
+class OutputLogsHandler {
+    constructor() {
+        this.logs = new Map();
+    }
+    handleJobList(jobs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            (0, debug_1.debug)('Retrieving logs for jobs in workflow', jobs);
+        });
+    }
+    handleJobLogs(job, logs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.logs.set(job.name, logs);
+        });
+    }
+    handleError(job, error) {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.warning(escapeImportedLogs(error.message));
+        });
+    }
+    getJsonLogs() {
+        const result = {};
+        const logPattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z)\s+(.*)/;
+        this.logs.forEach((logs, jobName) => {
+            result[jobName] = [];
+            for (const line of logs.split('\n')) {
+                if (line === '') {
+                    continue;
+                }
+                const splitted = line.split(logPattern);
+                result[jobName].push({
+                    datetime: splitted[1],
+                    message: splitted[2]
+                });
+            }
+            // result[jobName] = logs;
+        });
+        return JSON.stringify(result);
+    }
+    getRawLogs() {
+        let result = '';
+        this.logs.forEach((logs, jobName) => {
+            for (const line of logs.split('\n')) {
+                result += `${jobName} | ${line}\n`;
+            }
+        });
+        return result;
+    }
+}
 function logHandlerFactory(mode) {
     switch (mode) {
-        case 'print': return new PrintLogsHandler();
-        default: return null;
+        case 'print':
+            return new PrintLogsHandler();
+        case 'output':
+        case 'json-output':
+            return new OutputLogsHandler();
+        default:
+            return null;
     }
 }
 function escapeImportedLogs(str) {

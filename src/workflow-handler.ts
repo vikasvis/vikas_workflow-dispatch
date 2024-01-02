@@ -36,6 +36,7 @@ const ofConclusion = (conclusion: string | null): WorkflowRunConclusion => {
 }
 
 export interface WorkflowRunResult {
+  id: number,
   url: string,
   status: WorkflowRunStatus,
   conclusion: WorkflowRunConclusion
@@ -87,6 +88,7 @@ export class WorkflowHandler {
       debug('Workflow Run status', response);
 
       return {
+        id: runId,
         url: response.data.html_url,
         status: ofStatus(response.data.status),
         conclusion: ofConclusion(response.data.conclusion)
@@ -110,6 +112,7 @@ export class WorkflowHandler {
       debug('Workflow Run artifacts', response);
 
       return {
+        id: runId,
         url: response.data.html_url,
         status: ofStatus(response.data.status),
         conclusion: ofConclusion(response.data.conclusion)
