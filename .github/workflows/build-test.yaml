@@ -246,7 +246,7 @@ jobs:
           inputs: >-
             {
               "run-name": "${{ env.RUN_NAME }}",
-              "environment": "${{ matrix.environment }}",
+              "environment": "${{ matrix.environment }}"
             }
         continue-on-error: true
       - uses: nick-invision/assert-action@v1

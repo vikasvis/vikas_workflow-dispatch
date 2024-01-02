@@ -22,7 +22,7 @@ function parse(inputsJson: string) {
     try {
       return JSON.parse(inputsJson);
     } catch(e) {
-      throw new Error(`Failed to parse 'inputs' parameter. Muse be a valid JSON.\nCause: ${e}`)
+      throw new Error(`Failed to parse 'inputs' parameter. Must be a valid JSON.\nCause: ${e}`)
     }
   }
   return {}
