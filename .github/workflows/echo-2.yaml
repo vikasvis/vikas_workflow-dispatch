@@ -1,6 +1,8 @@
 name: Message Echo 2
 
-on: 
+on:
+  pull_request:
+    branches: [ master ]
   workflow_dispatch:
     inputs:
       message:

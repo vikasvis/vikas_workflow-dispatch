@@ -1,6 +1,8 @@
 name: Long running
 
-on: 
+on:
+  pull_request:
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:

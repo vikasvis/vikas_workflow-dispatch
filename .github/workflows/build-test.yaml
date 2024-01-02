@@ -183,6 +183,8 @@ jobs:
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
         wait-for-completion-timeout: 120s
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 120s
         workflow-logs: print
       continue-on-error: true
     - uses: nick-invision/assert-action@v1
