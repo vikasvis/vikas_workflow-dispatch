@@ -134,7 +134,6 @@ export class WorkflowHandler {
         repo: this.repo,
         workflow_id: workflowId,
         event: 'workflow_dispatch',
-        branch: this.ref,
         created: `>=${new Date(this.triggerDate).toISOString()}`
       });
 
