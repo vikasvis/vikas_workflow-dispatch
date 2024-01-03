@@ -261,8 +261,8 @@ jobs:
         env:
           EXPECTED_LOG_MESSAGE: "### Env: ${{ matrix.environment }} ###"
         with:
-          expected: "true"
-          actual: ${{ fromJson(steps.named-run-workflow.outputs.workflow-logs).echo.*.message == env.EXPECTED_LOG_MESSAGE }}
+          expected: true
+          actual: ${{ contains(fromJson(steps.named-run-workflow.outputs.workflow-logs).echo.*.message, env.EXPECTED_LOG_MESSAGE) }}
 
   deploy:
     needs:
