@@ -10089,11 +10089,8 @@ class WorkflowHandler {
             }
         });
     }
-    getWorkflowRunId() {
+    findAllWorkflowRuns() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.workflowRunId) {
-                return this.workflowRunId;
-            }
             try {
                 const workflowId = yield this.getWorkflowId();
                 const response = yield this.octokit.rest.actions.listWorkflowRuns({
@@ -10104,24 +10101,30 @@ class WorkflowHandler {
                     created: `>=${new Date(this.triggerDate).toISOString()}`
                 });
                 (0, debug_1.debug)('List Workflow Runs', response);
-                let runs = response.data.workflow_runs;
+                return response.data.workflow_runs;
+            }
+            catch (error) {
+                (0, debug_1.debug)('Fin all workflow runs error', error);
+                throw new Error(`Failed to list workflow runs. Cause: ${error}`);
+            }
+        });
+    }
+    getWorkflowRunId() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.workflowRunId) {
+                return this.workflowRunId;
+            }
+            try {
+                let runs = yield this.findAllWorkflowRuns();
                 if (this.runName) {
-                    runs = response.data.workflow_runs
-                        .filter((r) => r.name == this.runName);
+                    runs = runs.filter((r) => r.name == this.runName);
                 }
                 if (runs.length == 0) {
                     throw new Error('Run not found');
                 }
                 if (runs.length > 1) {
                     core.warning(`Found ${runs.length} runs. Using the last one.`);
-                    (0, debug_1.debug)(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
-                        id: r.id,
-                        name: r.name,
-                        created_at: r.created_at,
-                        triggerDate: new Date(this.triggerDate).toISOString(),
-                        created_at_ts: new Date(r.created_at).valueOf(),
-                        triggerDateTs: this.triggerDate
-                    })));
+                    yield this.debugFoundWorkflowRuns(runs);
                 }
                 this.workflowRunId = runs[0].id;
                 return this.workflowRunId;
@@ -10165,6 +10168,16 @@ class WorkflowHandler {
     }
     isFilename(workflowRef) {
         return /.+\.ya?ml$/.test(workflowRef);
+    }
+    debugFoundWorkflowRuns(runs) {
+        (0, debug_1.debug)(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
+            id: r.id,
+            name: r.name,
+            created_at: r.created_at,
+            triggerDate: new Date(this.triggerDate).toISOString(),
+            created_at_ts: new Date(r.created_at).valueOf(),
+            triggerDateTs: this.triggerDate
+        })));
     }
 }
 exports.WorkflowHandler = WorkflowHandler;
