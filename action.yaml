@@ -50,7 +50,7 @@ inputs:
     default: ignore
 
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'dist/index.js'
 
 branding:
