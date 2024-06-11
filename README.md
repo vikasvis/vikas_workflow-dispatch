@@ -11,7 +11,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 *Note 2.* If you want to reference the target workflow by ID, you will need to list them with the following REST API call `curl https://api.github.com/repos/{{owner}}/{{repo}}/actions/workflows -H "Authorization: token {{pat-token}}"`
 
-*This action is a fork of `benc-uk/workflow-dispatch` to add support for waiting for workflow completion.*
+*This action is a fork of `aurelien-baudet/workflow-dispatch` with a better management of run-name option and node20 support.*
 
 ## Inputs
 
@@ -105,16 +105,16 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 > Based on the value, result will be:
 >
 > * `output`: Multiline string
->
->   ```log
+    >
+    >   ```log
 >   <job-name> | <datetime> <message>
 >   <job-name> | <datetime> <message>
 >   ...
 >   ```
 >
 > * `json-output`: JSON string
->
->   ```json
+    >
+    >   ```json
 >   {
 >     "<job-name>": [
 >       {
@@ -135,7 +135,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow without inputs. Wait for result
-  uses: aurelien-baudet/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v2
   with:
     workflow: My Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -145,7 +145,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow without inputs. Don't wait for result
-  uses: aurelien-baudet/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v2
   with:
     workflow: My Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -156,7 +156,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow with inputs
-  uses: aurelien-baudet/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v2
   with:
     workflow: Another Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -167,7 +167,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow in another repo with inputs
-  uses: aurelien-baudet/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v2
   with:
     workflow: Some Workflow
     repo: benc-uk/example
@@ -180,7 +180,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 ```yaml
 - name: Invoke workflow and handle result
   id: trigger-step
-  uses: aurelien-baudet/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v2
   with:
     workflow: Another Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -194,7 +194,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 ```yaml
 - name: Invoke workflow and scrap output
   id: trigger-step
-  uses: aurelien-baudet/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v2
   with:
     workflow: Another Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -220,7 +220,7 @@ jobs:
 ```yaml
 - name: Invoke workflow and handle result
   id: trigger-step
-  uses: aurelien-baudet/workflow-dispatch@v3
+  uses: the-actions-org/workflow-dispatch@v3
   env:
     RUN_NAME: ${{ github.repository }}/actions/runs/${{ github.run_id }}
   with:
@@ -252,6 +252,9 @@ on:
 
 Thanks to:
 
+* [LudovicTOURMAN](https://github.com/LudovicTOURMAN )
+* [Djontleman](https://github.com/Djontleman)
+* [aurelien-baudet](https://github.com/aurelien-baudet)
 * [samirergaibi](https://github.com/samirergaibi)
 * [rui-ferreira](https://github.com/rui-ferreira)
 * [robbertvdg](https://github.com/robbertvdg)
