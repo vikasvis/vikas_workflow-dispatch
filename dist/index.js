@@ -29323,7 +29323,7 @@ function waitForCompletionOrTimeout(workflowHandler, checkStatusInterval, waitFo
 }
 function computeConclusion(start, waitForCompletionTimeout, result) {
     if ((0, utils_1.isTimedOut)(start, waitForCompletionTimeout)) {
-        core.info(`Workflow wait timed out`);
+        core.info('Workflow wait timed out');
         core.setOutput('workflow-conclusion', workflow_handler_1.WorkflowRunConclusion.TIMED_OUT);
         throw new Error('Workflow run has failed due to timeout');
     }
@@ -29358,7 +29358,7 @@ function run() {
             const workflowHandler = new workflow_handler_1.WorkflowHandler(args.token, args.workflowRef, args.owner, args.repo, args.ref, args.runName);
             // Trigger workflow run
             yield workflowHandler.triggerWorkflow(args.inputs);
-            core.info(`Workflow triggered 🚀`);
+            core.info('Workflow triggered 🚀');
             if (args.displayWorkflowUrl) {
                 const url = yield getFollowUrl(workflowHandler, args.displayWorkflowUrlInterval, args.displayWorkflowUrlTimeout);
                 core.info(`You can follow the running workflow here: ${url}`);
@@ -29367,7 +29367,7 @@ function run() {
             if (!args.waitForCompletion) {
                 return;
             }
-            core.info(`Waiting for workflow completion`);
+            core.info('Waiting for workflow completion');
             const { result, start } = yield waitForCompletionOrTimeout(workflowHandler, args.checkStatusInterval, args.waitForCompletionTimeout);
             yield handleLogs(args, workflowHandler);
             core.setOutput('workflow-id', result === null || result === void 0 ? void 0 : result.id);
@@ -29455,7 +29455,7 @@ function getArgs() {
         ? core.getInput('repo').split('/')
         : [github.context.repo.owner, github.context.repo.repo];
     // Decode inputs, this MUST be a valid JSON string
-    let inputs = parse(core.getInput('inputs'));
+    const inputs = parse(core.getInput('inputs'));
     const displayWorkflowUrlStr = core.getInput('display-workflow-run-url');
     const displayWorkflowUrl = displayWorkflowUrlStr && displayWorkflowUrlStr === 'true';
     const displayWorkflowUrlTimeout = toMilliseconds(core.getInput('display-workflow-run-url-timeout'));
@@ -29501,13 +29501,13 @@ function formatDuration(duration) {
     let minutesStr = minutes + '';
     let secondsStr = seconds + '';
     if (hours < 10) {
-        hoursStr = "0" + hoursStr;
+        hoursStr = '0' + hoursStr;
     }
     if (minutes < 10) {
-        minutesStr = "0" + minutesStr;
+        minutesStr = '0' + minutesStr;
     }
     if (seconds < 10) {
-        secondsStr = "0" + secondsStr;
+        secondsStr = '0' + secondsStr;
     }
     return hoursStr + 'h ' + minutesStr + 'm ' + secondsStr + 's';
 }
@@ -29727,7 +29727,7 @@ class WorkflowHandler {
                     repo: this.repo
                 });
                 const workflows = workflowsResp.data.workflows;
-                (0, debug_1.debug)(`List Workflows`, workflows);
+                (0, debug_1.debug)('List Workflows', workflows);
                 // Locate workflow either by name or id
                 const workflowFind = workflows.find((workflow) => workflow.name === this.workflowRef || workflow.id.toString() === this.workflowRef);
                 if (!workflowFind)
@@ -29926,8 +29926,8 @@ function logHandlerFactory(mode) {
     }
 }
 function escapeImportedLogs(str) {
-    return str.replace(/^/mg, "| ")
-        .replace(/##\[([^\]]+)\]/gm, "##<$1>");
+    return str.replace(/^/mg, '| ')
+        .replace(/##\[([^\]]+)\]/gm, '##<$1>');
 }
 
 
