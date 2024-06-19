@@ -92,6 +92,8 @@ jobs:
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
         wait-for-completion-timeout: 5m
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 5m
       continue-on-error: true
     - uses: nick-invision/assert-action@v1
       with:
@@ -105,7 +107,7 @@ jobs:
   failing-test:
     needs: [build]
     runs-on: ubuntu-latest
-    name: "failing-test [trigger+wait|by workflow filename|shoud report failure]"
+    name: "failing-test [trigger+wait|by workflow filename|should report failure]"
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -121,7 +123,9 @@ jobs:
         workflow: failing.yml
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
-        wait-for-completion-timeout: 5m
+        wait-for-completion-timeout: 60s
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 60s
       continue-on-error: true
     - run: echo "worflow-conclusion=${{ steps.failing-workflow.outputs.workflow-conclusion }}"
     - uses: nick-invision/assert-action@v1
@@ -136,7 +140,7 @@ jobs:
   timeout-test:
     needs: [build]
     runs-on: ubuntu-latest
-    name: "timeout-test [trigger+wait|by workflow filename|shoud report timed_out]"
+    name: "timeout-test [trigger+wait|by workflow filename|should report timed_out]"
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -153,6 +157,8 @@ jobs:
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
         wait-for-completion-timeout: 30s
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 30s
       continue-on-error: true
     - uses: nick-invision/assert-action@v1
       with:
@@ -166,7 +172,7 @@ jobs:
   print-workflow-logs-test:
     needs: [build]
     runs-on: ubuntu-latest
-    name: "print-workflow-logs-test [trigger+wait|by workflow filename|print logs|shoud report timed_out]"
+    name: "print-workflow-logs-test [trigger+wait|by workflow filename|print logs|should report timed_out]"
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -183,6 +189,8 @@ jobs:
         token: ${{ secrets.PERSONAL_TOKEN }}
         wait-for-completion-interval: 10s
         wait-for-completion-timeout: 120s
+        display-workflow-run-url-interval: 10s
+        display-workflow-run-url-timeout: 120s
         workflow-logs: print
       continue-on-error: true
     - uses: nick-invision/assert-action@v1
@@ -198,10 +206,63 @@ jobs:
     # - name: Invoke external workflow using this action
     #   uses: ./
     #   with:
-    #     workflow: Deploy To Kubernetes           
+    #     workflow: Deploy To Kubernetes
     #     repo: benc-uk/dapr-store
     #     token: ${{ secrets.PERSONAL_TOKEN }}
-    #     ref: master 
+    #     ref: master
+
+  parallel-runs-test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    name: "parallel-runs-test [trigger+wait|by workflow filename|should succeed]"
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - trunk
+          - staging
+    env:
+      RUN_NAME: ${{ github.repository }}/actions/runs/${{ github.run_id }}/envs/${{ matrix.environment }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+      - name: Download dist
+        uses: actions/download-artifact@v3
+        with:
+          name: build
+          path: dist
+      - name: Invoke 'named-run' workflow for this environment and wait for result using this action
+        id: named-run-workflow
+        uses: ./
+        with:
+          workflow: named-run.yml
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          run-name: ${{ env.RUN_NAME }}
+          wait-for-completion-interval: 10s
+          wait-for-completion-timeout: 120s
+          display-workflow-run-url-interval: 10s
+          display-workflow-run-url-timeout: 120s
+          workflow-logs: json-output
+          inputs: >-
+            {
+              "run-name": "${{ env.RUN_NAME }}",
+              "environment": "${{ matrix.environment }}"
+            }
+        continue-on-error: true
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: success
+          actual: ${{ steps.named-run-workflow.outputs.workflow-conclusion }}
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: success
+          actual: ${{ steps.named-run-workflow.outcome }}
+      - uses: nick-invision/assert-action@v1
+        env:
+          EXPECTED_LOG_MESSAGE: "### Env: ${{ matrix.environment }} ###"
+        with:
+          expected: true
+          actual: ${{ contains(fromJson(steps.named-run-workflow.outputs.workflow-logs).echo.*.message, env.EXPECTED_LOG_MESSAGE) }}
 
   deploy:
     needs:
@@ -211,6 +272,7 @@ jobs:
       - failing-test
       - timeout-test
       - print-workflow-logs-test
+      - parallel-runs-test
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository

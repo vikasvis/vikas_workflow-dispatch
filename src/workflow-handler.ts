@@ -36,8 +36,9 @@ const ofConclusion = (conclusion: string | null): WorkflowRunConclusion => {
 }
 
 export interface WorkflowRunResult {
-  url: string, 
-  status: WorkflowRunStatus, 
+  id: number,
+  url: string,
+  status: WorkflowRunStatus,
   conclusion: WorkflowRunConclusion
 }
 
@@ -87,6 +88,7 @@ export class WorkflowHandler {
       debug('Workflow Run status', response);
 
       return {
+        id: runId,
         url: response.data.html_url,
         status: ofStatus(response.data.status),
         conclusion: ofConclusion(response.data.conclusion)
@@ -110,6 +112,7 @@ export class WorkflowHandler {
       debug('Workflow Run artifacts', response);
 
       return {
+        id: runId,
         url: response.data.html_url,
         status: ofStatus(response.data.status),
         conclusion: ofConclusion(response.data.conclusion)
@@ -121,70 +124,52 @@ export class WorkflowHandler {
     }
   }
 
+  private async findAllWorkflowRuns() {
+    try {
+      const workflowId = await this.getWorkflowId();
+      const response = await this.octokit.rest.actions.listWorkflowRuns({
+        owner: this.owner,
+        repo: this.repo,
+        workflow_id: workflowId,
+        event: 'workflow_dispatch',
+        created: `>=${new Date(this.triggerDate).toISOString()}`
+      });
+
+      debug('List Workflow Runs', response);
+
+      return response.data.workflow_runs
+    } catch (error) {
+      debug('Fin all workflow runs error', error);
+      throw new Error(`Failed to list workflow runs. Cause: ${error}`)
+    }
+  }
 
   async getWorkflowRunId(): Promise<number> {
     if (this.workflowRunId) {
       return this.workflowRunId;
     }
     try {
-      core.debug('Get workflow run id');
+      let runs = await this.findAllWorkflowRuns();
       if (this.runName) {
-        this.workflowRunId = await this.findWorklowRunIdFromRunName(this.runName);
-      } else {
-        this.workflowRunId = await this.findWorkflowRunIdFromFirstRunOfSameWorkflowId();
+        runs = runs.filter((r: any) => r.name == this.runName)
       }
+
+      if (runs.length == 0) {
+        throw new Error('Run not found');
+      }
+
+      if (runs.length > 1) {
+        core.warning(`Found ${runs.length} runs. Using the last one.`);
+        await this.debugFoundWorkflowRuns(runs);
+      }
+
+      this.workflowRunId = runs[0].id as number;
 
       return this.workflowRunId;
     } catch (error) {
       debug('Get workflow run id error', error);
       throw error;
     }
-
-  }
-
-  private async findWorkflowRunIdFromFirstRunOfSameWorkflowId(): Promise<number> {
-    const workflowId = await this.getWorkflowId();
-
-    const response = await this.octokit.rest.actions.listWorkflowRuns({
-      owner: this.owner,
-      repo: this.repo,
-      workflow_id: workflowId,
-      event: 'workflow_dispatch'
-    });
-
-    debug('List Workflow Runs', response);
-    const runs = response.data.workflow_runs
-      .filter((r: any) => new Date(r.created_at).setMilliseconds(0) >= this.triggerDate);
-    debug(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      created_at: r.creatd_at,
-      triggerDate: new Date(this.triggerDate).toISOString(),
-      created_at_ts: new Date(r.created_at).valueOf(),
-      triggerDateTs: this.triggerDate
-    })));
-
-    if (runs.length == 0) {
-      throw new Error('Run not found');
-    }
-
-    return runs[0].id as number;
-  }
-
-  private async findWorklowRunIdFromRunName(runName: string): Promise<number> {
-    const result = await this.octokit.rest.checks.listForRef({
-      check_name: runName,
-      owner: this.owner,
-      repo: this.repo,
-      ref: this.ref,
-      filter: 'latest'
-    });
-
-    if (result.length == 0) {
-      throw new Error('Run not found');
-    }
-
-    return result.check_runs[0].id as number;
   }
 
   private async getWorkflowId(): Promise<number | string> {
@@ -198,7 +183,7 @@ export class WorkflowHandler {
     }
     try {
       const workflowsResp = await this.octokit.rest.actions.listRepoWorkflows({
-        owner: this.owner, 
+        owner: this.owner,
         repo: this.repo
       });
       const workflows = workflowsResp.data.workflows;
@@ -218,6 +203,17 @@ export class WorkflowHandler {
 
   private isFilename(workflowRef: string) {
     return /.+\.ya?ml$/.test(workflowRef);
+  }
+
+  private debugFoundWorkflowRuns(runs: any){
+    debug(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      created_at: r.created_at,
+      triggerDate: new Date(this.triggerDate).toISOString(),
+      created_at_ts: new Date(r.created_at).valueOf(),
+      triggerDateTs: this.triggerDate
+    })));
   }
 
 }

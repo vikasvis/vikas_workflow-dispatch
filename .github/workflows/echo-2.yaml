@@ -1,6 +1,6 @@
 name: Message Echo 2
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       message:

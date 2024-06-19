@@ -1,6 +1,6 @@
 name: Long running
 
-on: 
+on:
   workflow_dispatch:
 
 jobs:

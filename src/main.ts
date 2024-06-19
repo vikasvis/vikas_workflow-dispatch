@@ -66,7 +66,7 @@ async function handleLogs(args: any, workflowHandler: WorkflowHandler) {
     const workflowRunId = await workflowHandler.getWorkflowRunId()
     await handleWorkflowLogsPerJob(args, workflowRunId);
   } catch(e: any) {
-    core.error(`Failed to handle logs of tirggered workflow. Cause: ${e}`);
+    core.error(`Failed to handle logs of triggered workflow. Cause: ${e}`);
   }
 }
 
@@ -97,6 +97,7 @@ async function run(): Promise<void> {
 
     await handleLogs(args, workflowHandler);
 
+    core.setOutput('workflow-id', result?.id);
     core.setOutput('workflow-url', result?.url);
     computeConclusion(start, args.waitForCompletionTimeout, result);
 

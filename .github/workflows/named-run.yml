@@ -1,0 +1,24 @@
+name: Named run
+run-name: ${{ inputs.run-name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-name:
+        description: 'The distinct run name used to retrieve the run ID. Defaults to the workflow name'
+        type: string
+        required: false
+      environment:
+        description: 'The environment name'
+        type: string
+        required: true
+
+jobs:
+  echo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sleep
+        run: sleep 10s
+      - name: Echo message
+        run: |
+          echo '### Env: ${{ github.event.inputs.environment }} ###'

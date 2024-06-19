@@ -41,12 +41,18 @@ export async function handleWorkflowLogsPerJob(args: any, workflowRunId: number)
       await handler.handleError(job, error);
     }
   }
+
+  switch (mode) {
+    case 'json-output':
+      core.setOutput('workflow-logs', (handler as OutputLogsHandler).getJsonLogs());
+      break;
+    case 'output':
+      core.setOutput('workflow-logs', (handler as OutputLogsHandler).getRawLogs());
+      break;
+    default:
+      break;
+  }
 }
-
-
-
-
-
 
 interface WorkflowLogHandler {
   handleJobList(jobs: Array<JobInfo>): Promise<void>
@@ -64,7 +70,6 @@ class PrintLogsHandler implements WorkflowLogHandler {
     core.startGroup(`Logs of job '${job.name}'`);
     core.info(escapeImportedLogs(logs));
     core.endGroup();
-
   }
 
   async handleError(job: JobInfo, error: Error): Promise<void> {
@@ -72,10 +77,62 @@ class PrintLogsHandler implements WorkflowLogHandler {
   }
 }
 
+class OutputLogsHandler implements WorkflowLogHandler {
+  private logs: Map<string, string> = new Map();
+
+  async handleJobList(jobs: Array<JobInfo>): Promise<void> {
+    debug('Retrieving logs for jobs in workflow', jobs);
+  }
+
+  async handleJobLogs(job: JobInfo, logs: string): Promise<void> {
+    this.logs.set(job.name, logs);
+  }
+
+  async handleError(job: JobInfo, error: Error): Promise<void> {
+    core.warning(escapeImportedLogs(error.message));
+  }
+
+  getJsonLogs(): string {
+    const result: any = {};
+    const logPattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z)\s+(.*)/;
+
+    this.logs.forEach((logs: string, jobName: string) => {
+      result[jobName] = [];
+      for (const line of logs.split('\n')) {
+        if (line === '') {
+          continue;
+        }
+        const splitted = line.split(logPattern);
+        result[jobName].push({
+          datetime: splitted[1],
+          message: splitted[2]
+        });
+      }
+      // result[jobName] = logs;
+    });
+    return JSON.stringify(result);
+  }
+
+  getRawLogs(): string {
+    let result = '';
+    this.logs.forEach((logs: string, jobName: string) => {
+      for (const line of logs.split('\n')) {
+        result += `${jobName} | ${line}\n`;
+      }
+    });
+    return result;
+  }
+}
+
 function logHandlerFactory(mode: string): WorkflowLogHandler | null {
   switch(mode) {
-    case 'print': return new PrintLogsHandler();
-    default: return null;
+    case 'print':
+      return new PrintLogsHandler();
+    case 'output':
+    case 'json-output':
+      return new OutputLogsHandler();
+    default:
+      return null;
   }
 }
 

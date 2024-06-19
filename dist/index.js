@@ -9768,7 +9768,7 @@ function handleLogs(args, workflowHandler) {
             yield (0, workflow_logs_handler_1.handleWorkflowLogsPerJob)(args, workflowRunId);
         }
         catch (e) {
-            core.error(`Failed to handle logs of tirggered workflow. Cause: ${e}`);
+            core.error(`Failed to handle logs of triggered workflow. Cause: ${e}`);
         }
     });
 }
@@ -9794,6 +9794,7 @@ function run() {
             core.info(`Waiting for workflow completion`);
             const { result, start } = yield waitForCompletionOrTimeout(workflowHandler, args.checkStatusInterval, args.waitForCompletionTimeout);
             yield handleLogs(args, workflowHandler);
+            core.setOutput('workflow-id', result === null || result === void 0 ? void 0 : result.id);
             core.setOutput('workflow-url', result === null || result === void 0 ? void 0 : result.url);
             computeConclusion(start, args.waitForCompletionTimeout, result);
         }
@@ -9863,7 +9864,7 @@ function parse(inputsJson) {
             return JSON.parse(inputsJson);
         }
         catch (e) {
-            throw new Error(`Failed to parse 'inputs' parameter. Muse be a valid JSON.\nCause: ${e}`);
+            throw new Error(`Failed to parse 'inputs' parameter. Must be a valid JSON.\nCause: ${e}`);
         }
     }
     return {};
@@ -10053,6 +10054,7 @@ class WorkflowHandler {
                 });
                 (0, debug_1.debug)('Workflow Run status', response);
                 return {
+                    id: runId,
                     url: response.data.html_url,
                     status: ofStatus(response.data.status),
                     conclusion: ofConclusion(response.data.conclusion)
@@ -10075,6 +10077,7 @@ class WorkflowHandler {
                 });
                 (0, debug_1.debug)('Workflow Run artifacts', response);
                 return {
+                    id: runId,
                     url: response.data.html_url,
                     status: ofStatus(response.data.status),
                     conclusion: ofConclusion(response.data.conclusion)
@@ -10086,66 +10089,50 @@ class WorkflowHandler {
             }
         });
     }
+    findAllWorkflowRuns() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const workflowId = yield this.getWorkflowId();
+                const response = yield this.octokit.rest.actions.listWorkflowRuns({
+                    owner: this.owner,
+                    repo: this.repo,
+                    workflow_id: workflowId,
+                    event: 'workflow_dispatch',
+                    created: `>=${new Date(this.triggerDate).toISOString()}`
+                });
+                (0, debug_1.debug)('List Workflow Runs', response);
+                return response.data.workflow_runs;
+            }
+            catch (error) {
+                (0, debug_1.debug)('Fin all workflow runs error', error);
+                throw new Error(`Failed to list workflow runs. Cause: ${error}`);
+            }
+        });
+    }
     getWorkflowRunId() {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.workflowRunId) {
                 return this.workflowRunId;
             }
             try {
-                core.debug('Get workflow run id');
+                let runs = yield this.findAllWorkflowRuns();
                 if (this.runName) {
-                    this.workflowRunId = yield this.findWorklowRunIdFromRunName(this.runName);
+                    runs = runs.filter((r) => r.name == this.runName);
                 }
-                else {
-                    this.workflowRunId = yield this.findWorkflowRunIdFromFirstRunOfSameWorkflowId();
+                if (runs.length == 0) {
+                    throw new Error('Run not found');
                 }
+                if (runs.length > 1) {
+                    core.warning(`Found ${runs.length} runs. Using the last one.`);
+                    yield this.debugFoundWorkflowRuns(runs);
+                }
+                this.workflowRunId = runs[0].id;
                 return this.workflowRunId;
             }
             catch (error) {
                 (0, debug_1.debug)('Get workflow run id error', error);
                 throw error;
             }
-        });
-    }
-    findWorkflowRunIdFromFirstRunOfSameWorkflowId() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const workflowId = yield this.getWorkflowId();
-            const response = yield this.octokit.rest.actions.listWorkflowRuns({
-                owner: this.owner,
-                repo: this.repo,
-                workflow_id: workflowId,
-                event: 'workflow_dispatch'
-            });
-            (0, debug_1.debug)('List Workflow Runs', response);
-            const runs = response.data.workflow_runs
-                .filter((r) => new Date(r.created_at).setMilliseconds(0) >= this.triggerDate);
-            (0, debug_1.debug)(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
-                id: r.id,
-                name: r.name,
-                created_at: r.creatd_at,
-                triggerDate: new Date(this.triggerDate).toISOString(),
-                created_at_ts: new Date(r.created_at).valueOf(),
-                triggerDateTs: this.triggerDate
-            })));
-            if (runs.length == 0) {
-                throw new Error('Run not found');
-            }
-            return runs[0].id;
-        });
-    }
-    findWorklowRunIdFromRunName(runName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const result = yield this.octokit.rest.checks.listForRef({
-                check_name: runName,
-                owner: this.owner,
-                repo: this.repo,
-                ref: this.ref,
-                filter: 'latest'
-            });
-            if (result.length == 0) {
-                throw new Error('Run not found');
-            }
-            return result.check_runs[0].id;
         });
     }
     getWorkflowId() {
@@ -10181,6 +10168,16 @@ class WorkflowHandler {
     }
     isFilename(workflowRef) {
         return /.+\.ya?ml$/.test(workflowRef);
+    }
+    debugFoundWorkflowRuns(runs) {
+        (0, debug_1.debug)(`Filtered Workflow Runs (after trigger date: ${new Date(this.triggerDate).toISOString()})`, runs.map((r) => ({
+            id: r.id,
+            name: r.name,
+            created_at: r.created_at,
+            triggerDate: new Date(this.triggerDate).toISOString(),
+            created_at_ts: new Date(r.created_at).valueOf(),
+            triggerDateTs: this.triggerDate
+        })));
     }
 }
 exports.WorkflowHandler = WorkflowHandler;
@@ -10261,6 +10258,16 @@ function handleWorkflowLogsPerJob(args, workflowRunId) {
                 yield handler.handleError(job, error);
             }
         }
+        switch (mode) {
+            case 'json-output':
+                core.setOutput('workflow-logs', handler.getJsonLogs());
+                break;
+            case 'output':
+                core.setOutput('workflow-logs', handler.getRawLogs());
+                break;
+            default:
+                break;
+        }
     });
 }
 exports.handleWorkflowLogsPerJob = handleWorkflowLogsPerJob;
@@ -10283,10 +10290,63 @@ class PrintLogsHandler {
         });
     }
 }
+class OutputLogsHandler {
+    constructor() {
+        this.logs = new Map();
+    }
+    handleJobList(jobs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            (0, debug_1.debug)('Retrieving logs for jobs in workflow', jobs);
+        });
+    }
+    handleJobLogs(job, logs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.logs.set(job.name, logs);
+        });
+    }
+    handleError(job, error) {
+        return __awaiter(this, void 0, void 0, function* () {
+            core.warning(escapeImportedLogs(error.message));
+        });
+    }
+    getJsonLogs() {
+        const result = {};
+        const logPattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z)\s+(.*)/;
+        this.logs.forEach((logs, jobName) => {
+            result[jobName] = [];
+            for (const line of logs.split('\n')) {
+                if (line === '') {
+                    continue;
+                }
+                const splitted = line.split(logPattern);
+                result[jobName].push({
+                    datetime: splitted[1],
+                    message: splitted[2]
+                });
+            }
+            // result[jobName] = logs;
+        });
+        return JSON.stringify(result);
+    }
+    getRawLogs() {
+        let result = '';
+        this.logs.forEach((logs, jobName) => {
+            for (const line of logs.split('\n')) {
+                result += `${jobName} | ${line}\n`;
+            }
+        });
+        return result;
+    }
+}
 function logHandlerFactory(mode) {
     switch (mode) {
-        case 'print': return new PrintLogsHandler();
-        default: return null;
+        case 'print':
+            return new PrintLogsHandler();
+        case 'output':
+        case 'json-output':
+            return new OutputLogsHandler();
+        default:
+            return null;
     }
 }
 function escapeImportedLogs(str) {
