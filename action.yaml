@@ -68,7 +68,7 @@ outputs:
         - `json-output`: JSON logs formatted as: '{"<job-name>": [{"<datetime>": "<message>"}]'
 
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'dist/index.js'
 
 branding:
