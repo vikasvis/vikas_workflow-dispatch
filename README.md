@@ -135,7 +135,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow without inputs. Wait for result
-  uses: the-actions-org/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v4
   with:
     workflow: My Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -145,7 +145,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow without inputs. Don't wait for result
-  uses: the-actions-org/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v4
   with:
     workflow: My Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -156,7 +156,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow with inputs
-  uses: the-actions-org/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v4
   with:
     workflow: Another Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -167,7 +167,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 
 ```yaml
 - name: Invoke workflow in another repo with inputs
-  uses: the-actions-org/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v4
   with:
     workflow: Some Workflow
     repo: benc-uk/example
@@ -180,7 +180,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 ```yaml
 - name: Invoke workflow and handle result
   id: trigger-step
-  uses: the-actions-org/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v4
   with:
     workflow: Another Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -194,7 +194,7 @@ For details of the `workflow_dispatch` even see [this blog post introducing this
 ```yaml
 - name: Invoke workflow and scrap output
   id: trigger-step
-  uses: the-actions-org/workflow-dispatch@v2
+  uses: the-actions-org/workflow-dispatch@v4
   with:
     workflow: Another Workflow
     token: ${{ secrets.PERSONAL_TOKEN }}
@@ -220,7 +220,7 @@ jobs:
 ```yaml
 - name: Invoke workflow and handle result
   id: trigger-step
-  uses: the-actions-org/workflow-dispatch@v3
+  uses: the-actions-org/workflow-dispatch@v4
   env:
     RUN_NAME: ${{ github.repository }}/actions/runs/${{ github.run_id }}
   with:
