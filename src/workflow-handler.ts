@@ -188,10 +188,12 @@ export class WorkflowHandler {
         per_page: 99
       })
       const workflows = workflowsResp.data.workflows
+      console.log('List of workflows',workflows)
       debug('List Workflows', workflows)
 
       // Locate workflow either by name or id
       const workflowFind = workflows.find((workflow: any) => workflow.name === this.workflowRef || workflow.id.toString() === this.workflowRef)
+      console.log('workflowFind ',workflowFind)
       if(!workflowFind) throw new Error(`Unable to find workflow '${this.workflowRef}' in ${this.owner}/${this.repo} 😥`)
       core.debug(`Workflow id is: ${workflowFind.id}`)
       this.workflowId = workflowFind.id as number
