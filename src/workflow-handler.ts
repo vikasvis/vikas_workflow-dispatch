@@ -172,38 +172,99 @@ export class WorkflowHandler {
     }
   }
 
-  private async getWorkflowId(): Promise<number | string> {
-    if (this.workflowId) {
-      return this.workflowId
-    }
-    if (this.isFilename(this.workflowRef)) {
-      this.workflowId = this.workflowRef
-      core.debug(`Workflow id is: ${this.workflowRef}`)
-      return this.workflowId
-    }
-    try {
-      const workflowsResp = await this.octokit.rest.actions.listRepoWorkflows({
-        owner: this.owner,
-        repo: this.repo,
-        per_page: 99
-      })
-      const workflows = workflowsResp.data.workflows
-      core.info('List of workflows : ${workflows}')
-      debug('List Workflows', workflows)
-      core.info('this.workflowRef : ${this.workflowRef}')
+  // private async getWorkflowId(): Promise<number | string> {
+  //   if (this.workflowId) {
+  //     return this.workflowId
+  //   }
+  //   if (this.isFilename(this.workflowRef)) {
+  //     this.workflowId = this.workflowRef
+  //     core.debug(`Workflow id is: ${this.workflowRef}`)
+  //     return this.workflowId
+  //   }
+  //   try {
+  //     const workflowsResp = await this.octokit.rest.actions.listRepoWorkflows({
+  //       owner: this.owner,
+  //       repo: this.repo,
+  //       per_page: 99
+  //     })
+  //     const workflows = workflowsResp.data.workflows
+  //     core.info('List of workflows : ${workflows}')
+  //     debug('List Workflows', workflows)
+  //     core.info('this.workflowRef : ${this.workflowRef}')
 
-      // Locate workflow either by name or id
-      const workflowFind = workflows.find((workflow: any) => workflow.name === this.workflowRef || workflow.id.toString() === this.workflowRef)
-      core.info('workflowFind : ${workflowFind}')
-      if(!workflowFind) throw new Error(`Unable to find workflow '${this.workflowRef}' in ${this.owner}/${this.repo} 😥`)
-      core.debug(`Workflow id is: ${workflowFind.id}`)
-      this.workflowId = workflowFind.id as number
-      return this.workflowId
-    } catch(error) {
-      debug('List workflows error', error)
-      throw error
+  //     // Locate workflow either by name or id
+  //     const workflowFind = workflows.find((workflow: any) => workflow.name === this.workflowRef || workflow.id.toString() === this.workflowRef)
+  //     core.info('workflowFind : ${workflowFind}')
+  //     if(!workflowFind) throw new Error(`Unable to find workflow '${this.workflowRef}' in ${this.owner}/${this.repo} 😥`)
+  //     core.debug(`Workflow id is: ${workflowFind.id}`)
+  //     this.workflowId = workflowFind.id as number
+  //     return this.workflowId
+  //   } catch(error) {
+  //     debug('List workflows error', error)
+  //     throw error
+  //   }
+  // }
+  //paginate through all results by checking the Link header in the API response, which indicates if there are more pages of data.
+    private async getWorkflowId(): Promise<number | string> {
+      if (this.workflowId) {
+        return this.workflowId;
+      }
+    
+      if (this.isFilename(this.workflowRef)) {
+        this.workflowId = this.workflowRef;
+        core.debug(`Workflow id is: ${this.workflowRef}`);
+        return this.workflowId;
+      }
+    
+      try {
+        let workflows: any[] = [];
+        let page = 1;
+        let hasNextPage = true;
+    
+        // Loop through pages until no more are returned
+        while (hasNextPage) {
+          const workflowsResp = await this.octokit.rest.actions.listRepoWorkflows({
+            owner: this.owner,
+            repo: this.repo,
+            per_page: 99,
+            page
+          });
+    
+          workflows = workflows.concat(workflowsResp.data.workflows);
+    
+          core.info(`Fetched ${workflowsResp.data.workflows.length} workflows from page ${page}`);
+          
+          // Check if there's a "next" page by looking at the Link header
+          const linkHeader = workflowsResp.headers['link'];
+          hasNextPage = linkHeader && linkHeader.includes('rel="next"');
+          page++;
+        }
+    
+        core.info(`Total number of workflows: ${workflows.length}`);
+        core.info(`this.workflowRef : ${this.workflowRef}`);
+    
+        // Locate workflow either by name or id
+        const workflowFind = workflows.find(
+          (workflow: any) => workflow.name === this.workflowRef || workflow.id.toString() === this.workflowRef
+        );
+        
+        core.info(`workflowFind : ${workflowFind}`);
+        
+        if (!workflowFind) {
+          throw new Error(`Unable to find workflow '${this.workflowRef}' in ${this.owner}/${this.repo} 😥`);
+        }
+    
+        core.debug(`Workflow id is: ${workflowFind.id}`);
+        this.workflowId = workflowFind.id as number;
+        return this.workflowId;
+    
+      } catch (error) {
+        debug('List workflows error', error);
+        throw error;
+      }
     }
-  }
+
+  
 
   private isFilename(workflowRef: string) {
     return /.+\.ya?ml$/.test(workflowRef)
