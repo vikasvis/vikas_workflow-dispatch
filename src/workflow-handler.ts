@@ -184,7 +184,8 @@ export class WorkflowHandler {
     try {
       const workflowsResp = await this.octokit.rest.actions.listRepoWorkflows({
         owner: this.owner,
-        repo: this.repo
+        repo: this.repo,
+        per_page: 99
       })
       const workflows = workflowsResp.data.workflows
       debug('List Workflows', workflows)
